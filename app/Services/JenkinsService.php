@@ -24,58 +24,59 @@ class JenkinsService
         if ($this->crumb) return $this->crumb;
 
         try {
-            $response = Http::withBasicAuth($this->user, $this->token)
+            $res = Http::withBasicAuth($this->user, $this->token)
                 ->get($this->baseUrl . '/crumbIssuer/api/json');
-
-            if ($response->ok()) {
-                $data = $response->json();
-                $this->crumb = [
-                    $data['crumbRequestField'] => $data['crumb']
-                ];
-                return $this->crumb;
+            if ($res->ok()) {
+                $data = $res->json();
+                $this->crumb = [$data['crumbRequestField'] => $data['crumb']];
             }
         } catch (\Exception $e) {
-            Log::error("Jenkins crumb error: " . $e->getMessage());
+            Log::error("Failed get Jenkins crumb", ['error' => $e->getMessage()]);
         }
-
-        return [];
+        return $this->crumb ?? [];
     }
-    
+
     public function triggerJob(string $jobName, array $parameters = [])
     {
         $url = $this->baseUrl . '/job/' . $jobName . '/build';
         if (!empty($parameters)) {
             $url .= 'WithParameters';
+            $queryString = http_build_query($parameters);
+            $url .= '?' . $queryString;
         }
 
-        $request = Http::withBasicAuth($this->user, $this->token)
-            ->withHeaders($this->getCrumb());
-
-        if (!empty($parameters)) {
-            $response = $request->post($url, $parameters);
-        } else {
-            $response = $request->post($url);
+        try {
+            $request = Http::withBasicAuth($this->user, $this->token)
+                ->withHeaders($this->getCrumb());
+            Log::info("Triggering Jenkins job", ['job' => $jobName, 'parameters' => $parameters, 'url' => $url]);
+            $res = $request->post($url);
+            if ($res->ok()) {
+                return true;
+            }
+            Log::error("Jenkins job trigger failed", ['job' => $jobName, 'status' => $res->status(), 'body' => $res->body()]);
+            return false;
+        } catch (\Exception $e) {
+            Log::error("Trigger job failed", ['job' => $jobName, 'error' => $e->getMessage()]);
+            return false;
         }
-
-        return $response->ok();
     }
 
     public function getJobStatus(string $jobName)
     {
         try {
             $url = $this->baseUrl . '/job/' . $jobName . '/lastBuild/api/json';
-            $response = Http::withBasicAuth($this->user, $this->token)->get($url);
-
-            if ($response->ok()) {
-                $data = $response->json();
+            $res = Http::withBasicAuth($this->user, $this->token)->get($url);
+            if ($res->ok()) {
+                $data = $res->json();
                 return [
                     'building' => $data['building'] ?? false,
                     'result' => $data['result'] ?? null,
                     'timestamp' => $data['timestamp'] ?? null,
+                    'build_number' => $data['number'] ?? null,
                 ];
             }
         } catch (\Exception $e) {
-            Log::error("Jenkins status error: " . $e->getMessage());
+            Log::error("Get job status failed", ['job' => $jobName, 'error' => $e->getMessage()]);
         }
         return null;
     }
@@ -84,12 +85,11 @@ class JenkinsService
     {
         try {
             $url = $this->baseUrl . '/job/' . $jobName . '/lastBuild/logText/progressiveText';
-            $response = Http::withBasicAuth($this->user, $this->token)->get($url);
-
-            return $response->ok() ? $response->body() : null;
+            $res = Http::withBasicAuth($this->user, $this->token)->get($url);
+            if ($res->ok()) return $res->body();
         } catch (\Exception $e) {
-            Log::error("Jenkins log error: " . $e->getMessage());
-            return null;
+            Log::error("Get job log failed", ['job' => $jobName, 'error' => $e->getMessage()]);
         }
+        return null;
     }
 }

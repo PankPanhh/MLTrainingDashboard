@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Services\JenkinsService;
+use App\Models\MlJob;
 
 class JenkinsController extends Controller
 {
@@ -14,61 +15,72 @@ class JenkinsController extends Controller
         $this->jenkins = $jenkins;
     }
 
-    // Web dashboard
-    public function dashboard()
-    {
-        $jobName = 'MyJob';
-        $status = $this->jenkins->getJobStatus($jobName);
-        $log = $this->jenkins->getJobLog($jobName);
-
-        return view('jenkins.dashboard', compact('jobName', 'status', 'log'));
-    }
-
-
-    // Trigger job từ web form
     public function triggerWeb(Request $request, $jobName)
     {
-        $parameters = $request->input('parameters', []); // ['PARAM1' => 'panh']
-        $success = $this->jenkins->triggerJob($jobName, $parameters);
+        $parameterNames = $request->input('parameter_names', []);
+        $parameterValues = $request->input('parameter_values', []);
+        $params = [];
+        foreach ($parameterNames as $index => $name) {
+            if (!empty($name) && isset($parameterValues[$index])) {
+                $params[$name] = $parameterValues[$index];
+            }
+        }
 
-        return redirect()->route('jenkins.dashboard')
-            ->with('message', "$jobName triggered successfully!")
-            ->with('status', $success ? 'SUCCESS' : 'FAILED');
+        $success = $this->jenkins->triggerJob($jobName, $params);
+        if ($success) {
+            $status = $this->jenkins->getJobStatus($jobName);
+            MlJob::create([
+                'job_name' => $jobName,
+                'status' => 'running',
+                'params' => $params,
+                'build_number' => $status['build_number'] ?? null,
+                'log' => $this->jenkins->getJobLog($jobName),
+                'started_at' => now(),
+            ]);
+            return redirect()->back()->with('message', "$jobName triggered!");
+        }
+        return redirect()->back()->with('error', "Failed to trigger $jobName");
     }
 
-    // API: trigger job
     public function triggerApi(Request $request, $jobName)
     {
-        $parameters = $request->input('parameters', []);
-        $success = $this->jenkins->triggerJob($jobName, $parameters);
-
-        return response()->json([
-            'job' => $jobName,
-            'parameters' => $parameters,
-            'triggered' => $success,
-            'message' => $success ? 'Job triggered successfully' : 'Job trigger failed'
-        ]);
+        $params = $request->input('parameters', []);
+        $success = $this->jenkins->triggerJob($jobName, $params);
+        if ($success) {
+            $status = $this->jenkins->getJobStatus($jobName);
+            MlJob::create([
+                'job_name' => $jobName,
+                'status' => 'running',
+                'params' => $params,
+                'build_number' => $status['build_number'] ?? null,
+                'log' => $this->jenkins->getJobLog($jobName),
+                'started_at' => now(),
+            ]);
+            return response()->json(['job' => $jobName, 'triggered' => true]);
+        }
+        return response()->json(['job' => $jobName, 'triggered' => false], 500);
     }
 
-    // API: get status
-    public function statusApi($jobName)
+    public function status($jobName)
     {
         $status = $this->jenkins->getJobStatus($jobName);
-
-        return response()->json([
-            'job' => $jobName,
-            'status' => $status
-        ]);
+        if ($status) {
+            return response()->json([
+                'building' => $status['building'] ?? false,
+                'result' => $status['result'] ?? null,
+                'timestamp' => $status['timestamp'] ?? null,
+                'build_number' => $status['build_number'] ?? null,
+            ]);
+        }
+        return response()->json(['error' => 'Unable to fetch job status'], 500);
     }
 
-    // API: get log
-    public function logApi($jobName)
+    public function log($jobName)
     {
         $log = $this->jenkins->getJobLog($jobName);
-
-        return response()->json([
-            'job' => $jobName,
-            'log' => $log
-        ]);
+        if ($log !== null) {
+            return response($log)->header('Content-Type', 'text/plain');
+        }
+        return response('Unable to fetch job log', 500);
     }
 }
