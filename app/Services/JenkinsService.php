@@ -31,9 +31,15 @@ class JenkinsService
                 $this->crumb = [$data['crumbRequestField'] => $data['crumb']];
             }
         } catch (\Exception $e) {
-            Log::error("Failed get Jenkins crumb", ['error' => $e->getMessage()]);
+            Log::error("Failed to get Jenkins crumb", ['error' => $e->getMessage()]);
         }
         return $this->crumb ?? [];
+    }
+
+    // Thêm phương thức public để lấy crumb headers
+    public function getCrumbHeaders()
+    {
+        return $this->getCrumb();
     }
 
     public function triggerJob(string $jobName, array $parameters = [])
@@ -48,15 +54,33 @@ class JenkinsService
         try {
             $request = Http::withBasicAuth($this->user, $this->token)
                 ->withHeaders($this->getCrumb());
-            Log::info("Triggering Jenkins job", ['job' => $jobName, 'parameters' => $parameters, 'url' => $url]);
+            Log::info("Triggering Jenkins job", [
+                'job' => $jobName,
+                'parameters' => $parameters,
+                'url' => $url
+            ]);
             $res = $request->post($url);
-            if ($res->ok()) {
+            
+            if ($res->status() >= 200 && $res->status() < 400) {
+                Log::info("Jenkins job triggered successfully", [
+                    'job' => $jobName,
+                    'status' => $res->status(),
+                    'location' => $res->header('Location') ?? 'No Location header'
+                ]);
                 return true;
             }
-            Log::error("Jenkins job trigger failed", ['job' => $jobName, 'status' => $res->status(), 'body' => $res->body()]);
+            
+            Log::error("Jenkins job trigger failed", [
+                'job' => $jobName,
+                'status' => $res->status(),
+                'body' => $res->body()
+            ]);
             return false;
         } catch (\Exception $e) {
-            Log::error("Trigger job failed", ['job' => $jobName, 'error' => $e->getMessage()]);
+            Log::error("Trigger job failed", [
+                'job' => $jobName,
+                'error' => $e->getMessage()
+            ]);
             return false;
         }
     }
@@ -75,8 +99,16 @@ class JenkinsService
                     'build_number' => $data['number'] ?? null,
                 ];
             }
+            Log::error("Get job status failed", [
+                'job' => $jobName,
+                'status' => $res->status(),
+                'body' => $res->body()
+            ]);
         } catch (\Exception $e) {
-            Log::error("Get job status failed", ['job' => $jobName, 'error' => $e->getMessage()]);
+            Log::error("Get job status failed", [
+                'job' => $jobName,
+                'error' => $e->getMessage()
+            ]);
         }
         return null;
     }
@@ -87,8 +119,16 @@ class JenkinsService
             $url = $this->baseUrl . '/job/' . $jobName . '/lastBuild/logText/progressiveText';
             $res = Http::withBasicAuth($this->user, $this->token)->get($url);
             if ($res->ok()) return $res->body();
+            Log::error("Get job log failed", [
+                'job' => $jobName,
+                'status' => $res->status(),
+                'body' => $res->body()
+            ]);
         } catch (\Exception $e) {
-            Log::error("Get job log failed", ['job' => $jobName, 'error' => $e->getMessage()]);
+            Log::error("Get job log failed", [
+                'job' => $jobName,
+                'error' => $e->getMessage()
+            ]);
         }
         return null;
     }
