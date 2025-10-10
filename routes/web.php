@@ -1,7 +1,10 @@
 <?php
+use App\Http\Controllers\JenkinsController;
 
-use Illuminate\Support\Facades\Route;
+Route::prefix('jenkins')->group(function () {
+    Route::get('/dashboard', [JenkinsController::class, 'dashboard'])
+        ->name('jenkins.dashboard');
 
-Route::get('/', function () {
-    return view('welcome');
+    Route::post('/trigger-web/{jobName}', [JenkinsController::class, 'triggerWeb'])
+        ->name('jenkins.triggerWeb');
 });
