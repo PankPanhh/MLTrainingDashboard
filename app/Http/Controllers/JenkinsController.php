@@ -85,18 +85,18 @@ class JenkinsController extends Controller
         $params = $request->input('parameters', []);
         $success = $this->jenkins->triggerJob($jobName, $params);
         if ($success) {
-            sleep(5);
+            sleep(5); //Đợi 5 giây sau khi trigger job để đảm bảo Jenkins bắt đầu xử lý job
             $status = $this->jenkins->getJobStatus($jobName);
             $log = $this->jenkins->getJobLog($jobName);
             
             $attempts = 0;
-            while (!$status || !isset($status['build_number']) && $attempts < 3) {
+            while (!$status || !isset($status['build_number']) && $attempts < 3) { //Thử 3 lần, mỗi lần chờ 2 giây nếu getJobStatus không trả về build_number
                 sleep(2);
                 $status = $this->jenkins->getJobStatus($jobName);
                 $attempts++;
             }
 
-            if (!$status || !isset($status['build_number'])) {
+            if (!$status || !isset($status['build_number'])) { //Nếu không lấy được build_number, trả về JSON với thông báo lỗi nhưng vẫn đánh dấu triggered: true
                 Log::warning("Could not fetch build number for job", ['job' => $jobName]);
                 return response()->json([
                     'job' => $jobName,
@@ -105,7 +105,7 @@ class JenkinsController extends Controller
                 ], 200);
             }
 
-            $existingJob = MlJob::where('job_name', $jobName)
+            $existingJob = MlJob::where('job_name', $jobName) //Kiểm tra xem job với job_name và build_number đã tồn tại chưa để tránh trùng lặp
                 ->where('build_number', $status['build_number'])
                 ->where('status', 'running')
                 ->first();
@@ -117,7 +117,7 @@ class JenkinsController extends Controller
                     'params' => $params,
                     'build_number' => $status['build_number'],
                     'log' => $log,
-                    'started_at' => now(),
+                    'started_at' => now(), //gán start_at để trùng vơi thời gian hiện tại
                 ]);
             }
 
@@ -151,6 +151,7 @@ class JenkinsController extends Controller
                 'build_number' => $status['build_number'] ?? null,
             ]);
         }
+        //Trả về JSON đúng format (VD: {"building": false, "result": "SUCCESS", "timestamp": 1628765432000, "build_number": 5}).
         return response()->json(['error' => 'Unable to fetch job status'], 500);
     }
 
