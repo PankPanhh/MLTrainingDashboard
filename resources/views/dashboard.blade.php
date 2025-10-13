@@ -33,11 +33,11 @@
                 <button type="button" class="btn btn-danger mt-2 remove-parameter">Remove</button>
             </div>
         </div>
-        <!-- <button type="button" class="btn btn-secondary mt-2" id="addParameter">Add Parameter</button> -->
+        <button type="button" class="btn btn-secondary mt-2" id="addParameter">Add Parameter</button>
         <button type="submit" class="btn btn-primary mt-3">Trigger Job</button>
     </form>
 
-    <!-- <h3 class="mt-5">Job Status</h3>
+    <h3 class="mt-5">Job Status</h3>
     <div class="mb-3">
         <label for="statusJobName">Job Name</label>
         <input type="text" id="statusJobName" class="form-control" placeholder="Enter Job Name">
@@ -56,7 +56,7 @@
         <input type="text" id="logJobName" class="form-control" placeholder="Enter Job Name">
         <button id="checkLog" class="btn btn-secondary mt-2">View Log</button>
     </div>
-    <pre id="logResult" class="border p-3 d-none"></pre> -->
+    <pre id="logResult" class="border p-3 d-none"></pre>
 </div>
 
 <script>
@@ -81,7 +81,7 @@ $(document).ready(function () {
 
     $('#jobName').on('input', function () {
         const jobName = $(this).val();
-        $('#triggerForm').attr('action', jobName ? '/jenkins/trigger/' + encodeURIComponent(jobName) : '');
+        $('#triggerForm').attr('action', jobName ? '/ml/trigger/' + encodeURIComponent(jobName) : '');
     });
 
     $('#triggerForm').on('submit', function (e) {
@@ -93,38 +93,39 @@ $(document).ready(function () {
     });
 
     // $('#checkStatus').click(function () {
-    //     const jobName = $('#statusJobName').val();
-    //     if (!jobName) {
-    //         alert('Please enter a job name');
-    //         return;
-    //     }
-    //     $.get('/api/jenkins/status/' + encodeURIComponent(jobName), function (data) {
-    //         if (data.error) {
-    //             $('#statusResult').removeClass('alert-info').addClass('alert-danger').text(data.error).removeClass('d-none');
-    //         } else {
-    //             $('#building').text(data.building ? 'Running' : 'Not Running');
-    //             $('#result').text(data.result || 'N/A');
-    //             $('#timestamp').text(data.timestamp ? new Date(data.timestamp).toLocaleString() : 'N/A');
-    //             $('#build_number').text(data.build_number || 'N/A');
-    //             $('#statusResult').removeClass('alert-danger').addClass('alert-info').removeClass('d-none');
-    //         }
-    //     }).fail(function () {
-    //         $('#statusResult').removeClass('alert-info').addClass('alert-danger').text('Failed to fetch status').removeClass('d-none');
-    //     });
-    // });
+    $('#checkStatus').click(function () {
+        const jobName = $('#statusJobName').val();
+        if (!jobName) {
+            alert('Please enter a job name');
+            return;
+        }
+        $.get('/ml/status/' + encodeURIComponent(jobName), function (data) {
+            if (data.error) {
+                $('#statusResult').removeClass('alert-info').addClass('alert-danger').text(data.error).removeClass('d-none');
+            } else {
+                $('#building').text(data.building ? 'Running' : 'Not Running');
+                $('#result').text(data.result || 'N/A');
+                $('#timestamp').text(data.timestamp ? new Date(data.timestamp).toLocaleString() : 'N/A');
+                $('#build_number').text(data.build_number || 'N/A');
+                $('#statusResult').removeClass('alert-danger').addClass('alert-info').removeClass('d-none');
+            }
+        }).fail(function () {
+            $('#statusResult').removeClass('alert-info').addClass('alert-danger').text('Failed to fetch status').removeClass('d-none');
+        });
+    });
 
-    // $('#checkLog').click(function () {
-    //     const jobName = $('#logJobName').val();
-    //     if (!jobName) {
-    //         alert('Please enter a job name');
-    //         return;
-    //     }
-    //     $.get('/api/jenkins/log/' + encodeURIComponent(jobName), function (data) {
-    //         $('#logResult').text(data || 'No log available').removeClass('d-none');
-    //     }).fail(function () {
-    //         $('#logResult').text('Failed to fetch log').removeClass('d-none');
-    //     });
-    // });
+    $('#checkLog').click(function () {
+        const jobName = $('#logJobName').val();
+        if (!jobName) {
+            alert('Please enter a job name');
+            return;
+        }
+        $.get('/ml/log/' + encodeURIComponent(jobName), function (data) {
+            $('#logResult').text(data || 'No log available').removeClass('d-none');
+        }).fail(function () {
+            $('#logResult').text('Failed to fetch log').removeClass('d-none');
+        });
+    });
 });
 </script>
 </body>
