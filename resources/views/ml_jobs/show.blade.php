@@ -30,16 +30,21 @@
 <script>
 $(function(){
     $('#fetchStatus').click(function(){
-        $.get('/ml-jobs/{{ $job->id }}/status', function(data){
-            if (data.error) {
-                $('#statusArea').removeClass('alert-info').addClass('alert-danger').text(data.error).removeClass('d-none');
-            } else {
-                var txt = 'Building: ' + (data.building ? 'Yes' : 'No') + '\n';
-                txt += 'Result: ' + (data.result || 'N/A') + '\n';
-                txt += 'Timestamp: ' + (data.timestamp ? new Date(data.timestamp).toLocaleString() : 'N/A') + '\n';
-                txt += 'Build Number: ' + (data.build_number || 'N/A');
-                $('#statusArea').removeClass('alert-danger').addClass('alert-info').text(txt).removeClass('d-none');
+        $.get('/ml-jobs/{{ $job->id }}/status', function(resp){
+            var data = resp;
+            if (resp && resp.status && resp.data) {
+                if (resp.status !== 'success') {
+                    $('#statusArea').removeClass('alert-info').addClass('alert-danger').text(resp.message || 'Unable to fetch status').removeClass('d-none');
+                    return;
+                }
+                data = resp.data;
             }
+
+            var txt = 'Building: ' + (data.building ? 'Yes' : 'No') + '\n';
+            txt += 'Result: ' + (data.result || 'N/A') + '\n';
+            txt += 'Timestamp: ' + (data.timestamp ? new Date(data.timestamp).toLocaleString() : 'N/A') + '\n';
+            txt += 'Build Number: ' + (data.build_number || 'N/A');
+            $('#statusArea').removeClass('alert-danger').addClass('alert-info').text(txt).removeClass('d-none');
         }).fail(function(){
             $('#statusArea').removeClass('alert-info').addClass('alert-danger').text('Failed to fetch status').removeClass('d-none');
         });

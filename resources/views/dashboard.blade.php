@@ -33,7 +33,7 @@
                 <button type="button" class="btn btn-danger mt-2 remove-parameter">Remove</button>
             </div>
         </div>
-        <button type="button" class="btn btn-secondary mt-2" id="addParameter">Add Parameter</button>
+        <!-- <button type="button" class="btn btn-secondary mt-2" id="addParameter">Add Parameter</button> -->
         <button type="submit" class="btn btn-primary mt-3">Trigger Job</button>
     </form>
 
@@ -99,16 +99,23 @@ $(document).ready(function () {
             alert('Please enter a job name');
             return;
         }
-        $.get('/ml/status/' + encodeURIComponent(jobName), function (data) {
-            if (data.error) {
-                $('#statusResult').removeClass('alert-info').addClass('alert-danger').text(data.error).removeClass('d-none');
-            } else {
-                $('#building').text(data.building ? 'Running' : 'Not Running');
-                $('#result').text(data.result || 'N/A');
-                $('#timestamp').text(data.timestamp ? new Date(data.timestamp).toLocaleString() : 'N/A');
-                $('#build_number').text(data.build_number || 'N/A');
-                $('#statusResult').removeClass('alert-danger').addClass('alert-info').removeClass('d-none');
+        $.get('/ml/status/' + encodeURIComponent(jobName), function (resp) {
+            // Support both legacy flat response and new {status,message,data} shape
+            var data = resp;
+            if (resp && resp.status && resp.data) {
+                if (resp.status !== 'success') {
+                    $('#statusResult').removeClass('alert-info').addClass('alert-danger').text(resp.message || 'Unable to fetch status').removeClass('d-none');
+                    return;
+                }
+                data = resp.data;
             }
+
+            // Now `data` should be the flat Jenkins-like object
+            $('#building').text(data.building ? 'Running' : 'Not Running');
+            $('#result').text(data.result || 'N/A');
+            $('#timestamp').text(data.timestamp ? new Date(data.timestamp).toLocaleString() : 'N/A');
+            $('#build_number').text(data.build_number || 'N/A');
+            $('#statusResult').removeClass('alert-danger').addClass('alert-info').removeClass('d-none');
         }).fail(function () {
             $('#statusResult').removeClass('alert-info').addClass('alert-danger').text('Failed to fetch status').removeClass('d-none');
         });
